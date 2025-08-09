@@ -1,0 +1,581 @@
+---
+title: "Analysis of Bank Marketing Campaign Success"
+author:
+- Hameez Ahmad
+- Sajal Vatsayan 
+- Ashritha Shreedhara Udupa
+- Sanjida Kohinur Oni
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    fig_caption: true
+    latex_engine: xelatex
+    highlight: tango
+    keep_tex: true
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+    code_folding: show
+    fig_caption: true
+    keep_md: true
+    css: style.css
+---
+
+# Abstract
+Why do some bank marketing campaigns succeed while others falter? This report seeks to answer that question by exploring the story hidden within a Portuguese bank's telemarketing data. Using a highly visual approach in R, we uncover how a client's life circumstances, the economic climate, and campaign tactics come together to influence their decisions. We found that success isn't random; it follows clear patterns tied to the seasons, the first phone call, and specific client profiles. Ultimately, this analysis provides a clear roadmap for a more targeted and effective marketing strategy.
+
+# Introduction
+In the world of marketing, it's easy to spend a lot of money for very little return. This report is a deep dive into what actually works for a bank's term deposit campaigns. Instead of getting lost in spreadsheets, we use the power of data visualization to see the human side of the numbers—to understand the real-world factors that lead a person to say "yes." Our goal is simple: to transform complex data into a clear, practical guide that can help the bank connect with the right clients at the right time.
+
+# Data Set Information
+
+This dataset is related to direct marketing campaigns (via telephone calls) of a Portuguese banking institution. The primary goal of the marketing campaign is to predict whether the client will subscribe to a term deposit (the target variable, `y`).
+
+The data is stored in the `bank-additional-full.csv` file and contains 41,188 records and 21 columns. The dataset is ordered by date, from May 2008 to November 2010.
+
+
+
+---
+
+## Variable Descriptions
+
+The following table provides a detailed description of each variable in the dataset:
+
+
+| Variable          | Type        | Description                                                                                                                                                                                             |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `age`             | Numeric     | Age of the client.                                                                                                                                                                                      |
+| `job`             | Categorical | Type of job: 'admin.', 'blue-collar', 'entrepreneur', 'housemaid', 'management', 'retired', 'self-employed', 'services', 'student', 'technician', 'unemployed', 'unknown'.                                  |
+| `marital`         | Categorical | Marital status: 'divorced', 'married', 'single', 'unknown'. Note: 'divorced' means divorced or widowed.                                                                                                |
+| `education`       | Categorical | Education level: 'basic.4y', 'basic.6y', 'basic.9y', 'high.school', 'illiterate', 'professional.course', 'university.degree', 'unknown'.                                                                   |
+| `default`         | Categorical | Has credit in default?: 'no', 'yes', 'unknown'.                                                                                                                                                         |
+| `housing`         | Categorical | Has a housing loan?: 'no', 'yes', 'unknown'.                                                                                                                                                             |
+| `loan`            | Categorical | Has a personal loan?: 'no', 'yes', 'unknown'.                                                                                                                                                            |
+| `contact`         | Categorical | Contact communication type: 'cellular', 'telephone'.                                                                                                                                                    |
+| `month`           | Categorical | Last contact month of the year: 'jan', 'feb', 'mar', ..., 'nov', 'dec'.                                                                                                                                 |
+| `day_of_week`     | Categorical | Last contact day of the week: 'mon', 'tue', 'wed', 'thu', 'fri'.                                                                                                                                           |
+| `duration`        | Numeric     | Last contact duration in seconds. **Note:** This attribute highly affects the output target.                                      However, it is not known before a call is performed. This should be discarded for a realistic                                      predictive model. |
+| `campaign`        | Numeric     | Number of contacts performed during this campaign for this client (includes the last contact).                                                                                                          |
+| `pdays`           | Numeric     | Number of days that passed by after the client was last contacted from a previous campaign                                        (999 means the client was not previously contacted).                                                          |
+| `previous`        | Numeric     | Number of contacts performed before this campaign for this client.                                                                                                                                      |
+| `poutcome`        | Categorical | Outcome of the previous marketing campaign: 'failure', 'nonexistent', 'success'.                                                                                                                        |
+| `emp.var.rate`    | Numeric     | Employment variation rate - quarterly indicator.                                                                                                                                                          |
+| `cons.price.idx`  | Numeric     | Consumer price index - monthly indicator.                                                                                                                                                                 |
+| `cons.conf.idx`   | Numeric     | Consumer confidence index - monthly indicator.                                                                                                                                                            |
+| `euribor3m`       | Numeric     | Euribor 3-month rate - daily indicator.                                                                                                                                                                   |
+| `nr.employed`     | Numeric     | Number of employees - quarterly indicator.                                                                                                                                                                |
+| `y`               | Binary      | Has the client subscribed to a term deposit?: 'yes', 'no'.                                                                                                                                                |
+
+
+
+
+# Research Questions
+
+Our analysis is guided by the following six questions:
+
+1.  **Economic Context & Client Profession:** How do key economic indicators, specifically the **consumer confidence index** (`cons.conf.idx`) and the **Euribor 3-month rate** (`euribor3m`), interact with a client's **job** type to influence their decision to subscribe to a term deposit?
+2.  **Contact Strategy Effectiveness:** What is the combined effect of **call duration** and the **number of contacts** (`campaign`) on subscription success? Does this relationship change depending on the **contact method** (`cellular` vs. `telephone`)?
+3.  **Demographics and Financial Commitments:** How does a client's demographic profile—defined by their **marital status**, **education level**, and whether they have a **housing loan**—correlate with their likelihood of subscribing to a term deposit?
+4.  **Impact of Past Engagement:** For clients who have been contacted before, how does the outcome of the **previous campaign** (`poutcome`) and the **number of days since the last contact** (`pdays`) jointly predict the success of the current campaign?
+5.  **Age, Job, and Subscription Patterns:** How does the **age distribution** of clients who subscribe to a term deposit differ from those who do not, and how do these patterns vary across different **job** categories?
+6.  **Seasonal Trends and Campaign Fatigue:** Is there a seasonal effect on campaign success by **month**? Furthermore, how does this seasonality interact with campaign fatigue, as measured by the **number of contacts** (`campaign`) made to a client?
+
+```{r setup, include=FALSE}
+# This is a setup chunk. It's good practice to load all your libraries here.
+# Make sure to set echo=FALSE for the final report on chunks you don't want to show code for.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Load libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(viridis) # For color-blind friendly palettes
+
+# Load the data
+# Make sure the CSV file is in your project directory
+bank_data <- read.csv("bank-additional-full.csv", sep = ";")
+
+```
+
+# Analysis of Research Questions
+
+## Economic Context & Client Profession
+
+Our first research question is: 
+ 
+ > **How do key economic indicators (`cons.conf.idx`, `euribor3m`) interact with a client's `job` type to influence their decision to subscribe to a term deposit?**
+
+An initial exploration using scatter plots revealed a general trend but suffered from significant overplotting, making it difficult to discern the true success rate in dense data regions. To overcome this limitation, we adopt a more robust visualization strategy: a **faceted heatmap**.
+
+This approach involves binning the two continuous economic indicators into a grid. For each cell in the grid, we calculate the subscription rate. The color of the cell then directly represents that rate. This method is superior because it:
+
+1.  **Eliminates Over plotting:** It visualizes the aggregate success rate rather than individual, overlapping points.
+
+2.  **Provides Direct Answers:** The color intensity immediately reveals "hotspots" of high subscription rates.
+
+3.  **Enables Clear Comparisons:** It allows for an easy and accurate comparison of success rates across different job categories and economic conditions.
+
+### Visualizing Subscription Rates with a Faceted Heatmap
+
+We will now generate the heatmap. We create 4 bins for each economic indicator and then calculate the mean subscription rate for every combination of `job`, `euribor_bin`, and `conf_idx_bin`.
+
+```{r question1-heatmap, fig.cap="Figure 1: A faceted heatmap showing subscription rates. Color intensity reveals that students and retired clients have the highest success rates, concentrated in periods of low Euribor rates and high consumer confidence."}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(viridis)
+
+# Load the data
+# Ensure 'bank-additional-full.csv' is in your R project directory
+bank_data <- read.csv("bank-additional-full.csv", sep = ";")
+
+# Create bins and calculate subscription rates for the heatmap
+heatmap_data <- bank_data %>%
+  mutate(
+    euribor_bin = cut(euribor3m, breaks = 4, labels = c("Very Low", "Low", "Mid", "High")),
+    conf_idx_bin = cut(cons.conf.idx, breaks = 4, labels = c("Low", "Mid", "High", "Very High")),
+    subscribed = ifelse(y == "yes", 1, 0)
+  ) %>%
+  group_by(job, euribor_bin, conf_idx_bin) %>%
+  summarise(subscription_rate = mean(subscribed), .groups = 'drop') %>%
+  filter(!is.na(euribor_bin), !is.na(conf_idx_bin))
+
+# Create the faceted heatmap visualization
+ggplot(heatmap_data, aes(x = euribor_bin, y = conf_idx_bin, fill = subscription_rate)) +
+  geom_tile(color = "white") +
+  # Add text labels for the exact rate, rounded to the nearest percent
+  geom_text(aes(label = scales::percent(subscription_rate, accuracy = 1)), size = 2.5, color = "white") +
+  facet_wrap(~ job, ncol = 4) +
+  scale_fill_viridis(option = "C", name = "Subscription Rate", labels = scales::percent) +
+  labs(
+    title = "Subscription Rate Heatmap by Profession and Economic Conditions",
+    subtitle = "Color intensity indicates the percentage of successful subscriptions",
+    x = "Binned Euribor 3-Month Rate",
+    y = "Binned Consumer Confidence Index"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  )
+```
+
+### In-Depth Findings from the Heatmap
+
+The heatmap provides a clear and compelling view of the data, revealing several nuanced patterns:
+
+* **Dominant Trend:** Across nearly all professions, the highest subscription rates are concentrated in the "Very Low" Euribor rate bin. For many groups like **admin.**, **management**, **retired**, and **students**, success rates in this bin often exceed 40-50%. This confirms that a low-interest-rate environment is broadly favorable for marketing campaign success.
+
+* **Unexpected Hotspots:** The most striking finding comes from groups with otherwise low average success rates.
+    * The **blue-collar** panel reveals a perfect **100% success rate** (the bright yellow cell) for clients contacted when the Euribor rate was "Low" and consumer confidence was also "Low".
+    * Similarly, the **services** panel shows an exceptionally high **75% success rate** under the exact same conditions ("Low" Euribor, "Low" confidence).
+
+* **Sensitivity Analysis:**
+    * **High-Sensitivity Groups:** **Students** and **retired** clients show high success rates (40-55%) almost exclusively in the "Very Low" and "Low" Euribor bins, confirming their decisions are strongly tied to favorable economic signals.
+    * **Complex-Sensitivity Groups:** **Blue-collar** and **services** workers, previously thought to be insensitive, are revealed to have specific, high-performing niches. Their success is not as broadly tied to the economy as students/retirees, but under the right, specific conditions, they are extremely receptive.
+
+
+### Conclusion 
+
+The heatmap visualization decisively answers our research question. The economic climate, as measured by the Euribor rate and consumer confidence, is a powerful predictor of subscription success, but its effect is strongly mediated by the client's profession.
+
+The most actionable insight is the identification of **students and retired clients as highly sensitive to economic conditions.** Marketing campaigns targeting these demographics should be strategically timed to coincide with periods of low interest rates and high consumer confidence to maximize efficiency and return on investment. Conversely, for less sensitive groups like blue-collar workers, campaign messaging should likely focus on other value propositions, as appealing to the macroeconomic environment is unlikely to be effective.
+
+##  Contact Strategy Effectiveness
+
+Our second research question focuses on the operational aspects of the marketing campaign:
+
+> **What is the combined effect of call `duration` and the `number of contacts` (`campaign`) on subscription success? Does this relationship change depending on the `contact` method ('cellular' vs. 'telephone')?**
+
+This question is vital for optimizing campaign efficiency. It seeks to determine the "sweet spot" for engagement: how long should calls be, and how many times should a client be contacted? We also hypothesize that the effectiveness of these strategies may differ between the more modern cellular contact method and traditional telephone calls.
+
+Our initial approach is the one proposed: a scatter plot of `duration` versus `campaign`, faceted by `contact` type and colored by the outcome `y`. This will give us a direct visual of the raw data distribution.
+
+###  Initial Visualization: A Faceted Scatter Plot
+
+```{r question2-viz1, fig.cap="Figure 2: Scatter plot showing subscription outcomes based on call duration and number of contacts. Successful calls (yellow) are almost all clustered at low campaign numbers and longer durations."}
+# Note: The 'duration' variable should be handled with care.
+# A duration of 0 is impossible for a completed call and can indicate a data issue
+# or a call that wasn't answered. More importantly, the duration is not known *before*
+# the call. A long duration might be a *result* of a successful call (the client is interested)
+# rather than a *cause* of it. We will address this limitation in the next section.
+
+ggplot(bank_data, aes(x = duration, y = campaign, color = y)) +
+  geom_point(alpha = 0.4) +
+  facet_wrap(~ contact) +
+  scale_x_log10() + # Use a log scale for duration to better see the distribution
+  scale_y_log10() + # Use a log scale for campaign to handle outliers
+  scale_color_viridis_d(option = "D", name = "Subscribed", labels = c("No", "Yes")) +
+  labs(
+    title = "Contact Strategy Effectiveness by Method",
+    subtitle = "Call Duration vs. Number of Contacts",
+    x = "Contact Duration in Seconds (Log Scale)",
+    y = "Number of Contacts in this Campaign (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+**Initial Findings and Critical Limitations**
+
+The scatter plot reveals a few immediate patterns:
+
+1.  **Campaign Count:** Across both `cellular` and `telephone` contacts, successful subscriptions (yellow dots) are overwhelmingly concentrated at lower campaign numbers (fewer than 10). It is visually evident that contacting a client an excessive number of times yields diminishing returns.
+
+2.  **Call Duration:** Successful calls are almost exclusively associated with longer durations (typically over 100 seconds).
+
+3.  **Contact Method:** The `cellular` panel contains far more data points and a higher visual concentration of successful outcomes compared to the `telephone` panel, suggesting cellular campaigns were both more common and more effective.
+
+However, this visualization has a **critical flaw related to the `duration` variable**. The documentation for this dataset notes that a `duration` of 0 means the outcome `y` will always be 'no'. More importantly, the call duration is not a pre-planned strategy; it's an *outcome* of the call itself. A client who is interested will stay on the line longer. Therefore, using `duration` to predict success is misleading—it's like saying "patients who recover spend more time in the recovery room." While true, it's not a predictive strategy.
+
+The scatter plot also suffers from the same overplotting issue as before, making it hard to judge success rates.
+
+###  A Better Approach: Visualizing Success Rates
+
+To create an actionable strategy, we must focus on variables we can control *before* the call. The number of contacts (`campaign`) is a perfect example. We can reframe the question to: "For a given number of contacts, what is our success rate, and how does this differ by contact method?"
+
+A bar chart is an excellent way to visualize this relationship.
+
+```{r question2-viz2, fig.cap="Figure 3: Subscription success rates by the number of contacts. The plot clearly shows a steep decline in effectiveness after the first contact for both methods."}
+# We will cap the campaign number for clarity, as high numbers have very few data points.
+campaign_success_rates <- bank_data %>%
+  filter(campaign < 15) %>%
+  group_by(contact, campaign) %>%
+  summarise(
+    subscription_rate = mean(y == "yes"),
+    n = n(),
+    .groups = 'drop'
+  )
+
+ggplot(campaign_success_rates, aes(x = as.factor(campaign), y = subscription_rate, fill = contact)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = scales::percent(subscription_rate, accuracy = 1)),
+            position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(name = "Contact Method") +
+  labs(
+    title = "Subscription Rate Declines Sharply with Repeated Contact",
+    subtitle = "Effectiveness of the number of contacts, by method",
+    x = "Number of Contacts in this Campaign",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+```
+
+###  Conclusion
+
+The bar chart provides a clear and unambiguous answer to our research question, with several key takeaways:
+
+1.  **Cellular Superiority:** The `cellular` contact method is dramatically more effective than `telephone`, especially on initial contact. The campaign begins with a **17% success rate for cellular on the first call**, nearly three times the **6% success rate for telephone**.
+
+2.  **Predictable Decline for Cellular:** For the cellular method, there is a clear and steady decline in effectiveness with each subsequent call. The rate drops from 17% on the first call to 15%, 14%, and 13% on the next three, eventually falling to just 5% by the eighth contact.
+
+3.  **Erratic Pattern for Telephone:** The `telephone` method not only has a lower success rate but also a less predictable pattern. After starting at 6%, the rate hovers around 4-5% before showing a surprising spike to **8% on the 11th contact**. This may suggest a different client psychology for this channel or, more likely, be an artifact of a smaller sample size at higher contact numbers.
+
+**Actionable Insight:** The contact strategy should be heavily front-loaded and prioritize the cellular channel. The **first three contacts via cellular are the most valuable**, with success rates well above 10%. Pursuing clients beyond 5-6 contacts via cellular offers sharply diminishing returns. The telephone channel is significantly less effective and should be deprioritized. The unusual spikes in its effectiveness at high contact numbers are likely statistical noise and do not represent a reliable strategy.
+
+## Demographics and Financial Commitments
+
+Our third research question explores the client's personal and financial situation:
+
+> **How does a client's demographic profile—defined by their `marital` status, `education` level, and whether they have a `housing` loan—correlate with their likelihood of subscribing to a term deposit?**
+
+This question involves three categorical variables. To visualize this complex relationship effectively, we will use a **faceted bar chart**. This visualization will show the subscription rate for each `marital` status, broken down into a grid of plots faceted by `education` level and `housing` loan status.
+
+Before plotting, we will perform a minor data cleaning step, grouping the various "basic" education levels (`basic.4y`, `basic.6y`, `basic.9y`) into a single "Basic" category to make the visualization cleaner and more interpretable.
+
+### Visualizing Demographic and Financial Segments
+
+The following code first prepares the data by creating the cleaned education category and calculating the subscription rates for each demographic subgroup. Then, it generates the faceted plot.
+
+```{r question3-viz, fig.cap="Figure 5: Subscription rates by marital status, faceted by housing loan status and education level. Success rates vary significantly across these demographic segments."}
+# Clean the education variable for better visualization
+demographic_data <- bank_data %>%
+  mutate(
+    # Combine various 'basic' education levels into one category
+    education_clean = case_when(
+      grepl("basic", education) ~ "Basic Education",
+      education == "unknown" ~ "Unknown",
+      TRUE ~ as.character(education)
+    ),
+    # Capitalize for cleaner labels
+    housing = paste("Housing Loan:", Hmisc::capitalize(housing))
+  )
+
+# Calculate success rates for each demographic subgroup
+demographic_rates <- demographic_data %>%
+  group_by(education_clean, housing, marital) %>%
+  summarise(
+    subscription_rate = mean(y == "yes"),
+    .groups = 'drop'
+  )
+
+# Create the faceted bar chart
+ggplot(demographic_rates, aes(x = marital, y = subscription_rate, fill = marital)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = scales::percent(subscription_rate, accuracy = 1)),
+            position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
+  facet_grid(housing ~ education_clean) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.25)) +
+  scale_fill_viridis_d(guide = "none") + # Remove legend for fill as x-axis is clear
+  labs(
+    title = "Subscription Rate by Demographic and Financial Profile",
+    subtitle = "Faceted by Housing Loan Status and Education Level",
+    x = "Marital Status",
+    y = "Subscription Rate"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+###  In-Depth Findings from the Bar Charts
+
+The faceted plot reveals several key insights into how different demographic profiles behave:
+
+* **Highest Success Groups:** The most receptive clients are **single individuals with an unknown education level who do not have a housing loan**, showing a standout success rate of **17%**. Following closely are single clients with a university degree (16%) and high school education (14%) who also do not have a housing loan.
+* **Impact of Housing Loans:** A clear pattern emerges when comparing the top row ("Housing Loan: No") to the bottom row ("Housing Loan: Yes"). Across almost all categories, clients **without a housing loan have a higher subscription rate** than their counterparts with a housing loan. This suggests the financial burden of a mortgage reduces the likelihood of subscribing.
+* **Education Matters:** Higher education levels generally correlate with higher subscription rates, particularly for single and divorced individuals without housing loans. The "illiterate" category shows no subscriptions, likely due to a very small sample size.
+* **Marital Status:** In nearly every facet, **single clients have the highest subscription rates**, often followed by divorced clients. Married clients consistently show lower rates across most education and housing categories.
+
+### Conclusion 
+
+A client's demographic and financial profile is a strong indicator of their likelihood to subscribe. The ideal client profile is clear and actionable.
+
+**Actionable Insight:** Marketing efforts should be **precision-targeted at single clients who do not have a housing loan, particularly those with a university degree, professional course, or even an unknown education status.** This group represents the lowest-hanging fruit with the highest probability of conversion. Conversely, married clients with housing loans represent a much lower-priority segment, and resources directed at them are likely to have a much lower return on investment.
+
+##  Impact of Past Engagement
+
+Our fourth research question focuses on clients who have been contacted in previous campaigns:
+
+> **For clients who have been contacted before, how does the outcome of the previous campaign (`poutcome`) and the number of days since the last contact (`pdays`) jointly predict the success of the current campaign?**
+
+This analysis specifically excludes clients who were never contacted before (where `pdays` is 999). The goal is to see if past success and recent contact are indicators of future success.
+
+To visualize this, we will use a **violin plot combined with an inner boxplot**. This hybrid visualization is ideal because it shows the distribution shape (violin) and key statistical summaries like the median and interquartile range (box). We will plot the distribution of `pdays` (days since last contact) on the y-axis, segmented by the previous outcome (`poutcome`) on the x-axis, and filled by the current campaign's outcome (`y`).
+
+###  Visualizing Past Engagement Patterns
+
+The following code first filters the data to include only previously contacted clients and then generates the violin plot.
+
+```{r question4-viz, fig.cap="Figure 6: Distribution of days since last contact (`pdays`) for previously contacted clients. A successful previous outcome dramatically increases the current success rate."}
+# Filter for clients who were contacted in a previous campaign
+past_engagement_data <- bank_data %>%
+  filter(pdays != 999)
+
+# Create the violin plot with an inner boxplot
+ggplot(past_engagement_data, aes(x = poutcome, y = pdays, fill = y)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.5, position = position_dodge(0.9)) +
+  scale_fill_viridis_d(option = "D", name = "Current Subscription") +
+  labs(
+    title = "Impact of Previous Campaign Outcome on Current Success",
+    subtitle = "Based on days since last contact (`pdays`)",
+    x = "Previous Campaign Outcome",
+    y = "Days Since Last Contact"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+###  In-Depth Findings from the Violin Plots
+
+The visualization provides a powerful story about client retargeting:
+
+* **Previous Success is a Key Predictor:** The "success" panel on the right shows that clients with a successful previous outcome are highly likely to subscribe again. The yellow violin (current success) is much larger than the purple one, corresponding to a **65% success rate** for this group.
+* **Recency Matters:** For both previous "success" and "failure" groups, the yellow violins are concentrated at lower `pdays` values. This means that successful outcomes in the current campaign are strongly associated with more recent previous contact.
+* **Previous Failure is Not a Dead End:** The "failure" panel shows that clients who previously did not subscribe still convert at a respectable **14% rate**. This is a valuable segment that should not be ignored. The median `pdays` for this group is also low (around 7-9 days), reinforcing the importance of timely follow-up.
+
+###  Conclusion
+
+Past campaign data is an invaluable asset for predicting future success. The outcome of a previous campaign and the timing of the next contact are critical determinants of a client's receptiveness.
+
+**Actionable Insight:** The marketing strategy for previously contacted clients should be highly segmented.
+
+1.  **Prioritize Previous Successes:** Clients who have subscribed in the past should be the top priority for retargeting, as they show a very high propensity to subscribe again.
+
+2.  **Strike While the Iron is Hot:** For all previously contacted clients, the follow-up should be made quickly. The data shows that recent contact (low `pdays`) consistently leads to better outcomes.
+
+3.  **Don't Discard Past Failures:** Clients who previously failed to subscribe are still a viable audience and convert at a rate higher than the general population. They should be included in retargeting efforts, with an emphasis on timely follow-up.
+
+
+##  Age, Job, and Subscription Patterns
+
+Our fifth research question shifts the focus to demographic patterns:
+
+> **How does the age distribution of clients who subscribe to a term deposit differ from those who do not, and how do these patterns vary across different job categories?**
+
+This question aims to uncover age-related trends that could inform more precise client targeting. For instance, are younger managers more receptive than older ones? Do retired clients of a certain age show more interest?
+
+To answer this, a **faceted density plot** is the ideal visualization tool. We will create a grid of plots, one for each `job`. Within each plot, we will overlay two density curves: one showing the age distribution of clients who subscribed ("Yes") and one for those who did not ("No"). This allows for a direct comparison of the shape, peak, and spread of the age distributions for successful versus unsuccessful clients within each profession. The semi-transparent overlap will help in discerning subtle differences between the two groups.
+
+###  Visualizing Age Distributions by Job and Outcome
+
+The following code generates the faceted density plot. We use `geom_density` with a transparency (`alpha`) value to ensure both distributions are visible.
+
+```{r question5-viz, fig.cap="Figure 4: Age distributions for clients who subscribed ('Yes') vs. did not ('No'), faceted by profession. Clear differences in age profiles are visible for several job categories."}
+ggplot(bank_data, aes(x = age, fill = y)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~ job, ncol = 4, scales = "free_y") + # Use free_y to allow density scales to adjust per facet
+  scale_fill_viridis_d(option = "D", name = "Subscribed", labels = c("No", "Yes")) +
+  labs(
+    title = "Age Distribution of Subscription Outcomes by Profession",
+    subtitle = "Comparing age profiles of successful vs. unsuccessful contacts",
+    x = "Client Age",
+    y = "Density"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        strip.text = element_text(face = "bold"))
+```
+
+###  In-Depth Findings from the Density Plots
+
+The density plots reveal several key age-related patterns:
+
+* **Students:** Success is almost exclusively limited to a sharp peak of clients in their early 20s.
+* **Admin & Management:** Successful subscribers show a clear bimodal pattern, with distinct peaks for young professionals (around 30) and pre-retirement professionals (around 55-60). This indicates two separate target age groups.
+* **Retired:** A very strong peak in successful subscriptions occurs between the ages of 60 and 70.
+* **Blue-Collar & Services:** For these roles, the age distributions for successful and unsuccessful contacts are very similar, suggesting age is not a primary factor for success.
+
+###  Conclusion 
+
+The analysis clearly shows that age is a critical factor for some, but not all, professions. A "one-size-fits-all" age strategy is inefficient.
+
+**Actionable Insight:** Marketing can be optimized by targeting specific age windows:
+
+* **Students:** Focus on clients under 25.
+
+* **Admin & Management:** Target two distinct groups: young professionals (25-35) and those nearing retirement (55-60).
+
+* **Retired:** Concentrate efforts on clients aged 60-70.
+
+This nuanced age-and-job-based targeting allows for more efficient allocation of marketing resources.
+
+##  Seasonal Trends and Campaign Fatigue
+
+Our final research question combines a temporal element with campaign intensity:
+
+> **Is there a seasonal effect on campaign success by `month`? Furthermore, how does this seasonality interact with campaign fatigue, as measured by the number of contacts (`campaign`) made to a client?**
+
+To best answer this, we will create a **hybrid visualization**. We will use a heatmap as the base layer to show the detailed subscription rate for each specific combination of month and contact frequency. Then, we will overlay a bold line chart that shows the *average* success rate for each month across all campaign frequencies.
+
+This combined approach allows us to see both the granular "hotspots" (from the heatmap) and the overarching seasonal trend (from the line chart) in a single, powerful graphic.
+
+###  Visualizing Seasonal and Fatigue Effects
+
+The following code first prepares the data for both the heatmap tiles and the overlay line. It then combines them into one `ggplot` object.
+
+```{r question6-viz, fig.cap="Figure 7: Hybrid chart showing subscription rates by month and contact frequency. The heatmap shows detailed rates, while the overlaid line chart clearly emphasizes the main seasonal trend."}
+# Bin the campaign variable into logical groups
+seasonal_data <- bank_data %>%
+  mutate(
+    campaign_bin = case_when(
+      campaign == 1 ~ "1",
+      campaign == 2 ~ "2",
+      campaign == 3 ~ "3",
+      campaign >= 4 & campaign <= 6 ~ "4-6",
+      TRUE ~ "7+"
+    ),
+    # Ensure months are in chronological order for the plot
+    month = factor(month, levels = c("mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))
+  )
+
+# 1. Calculate rates for the heatmap tiles
+seasonal_rates <- seasonal_data %>%
+  group_by(month, campaign_bin) %>%
+  summarise(
+    subscription_rate = mean(y == "yes"),
+    .groups = 'drop'
+  )
+
+# 2. Calculate average monthly rates for the overlay line
+monthly_avg_rates <- seasonal_data %>%
+  group_by(month) %>%
+  summarise(
+    avg_rate = mean(y == "yes"),
+    .groups = 'drop'
+  )
+
+# 3. Create the combined plot
+ggplot() +
+  # Layer 1: The Heatmap
+  geom_tile(data = seasonal_rates, aes(x = month, y = campaign_bin, fill = subscription_rate), color = "white") +
+  geom_text(data = seasonal_rates, aes(x = month, y = campaign_bin, label = scales::percent(subscription_rate, accuracy = 1)), size = 3, color = "black") +
+  scale_fill_viridis(option = "C", name = "Subscription Rate", labels = scales::percent, alpha = 0.7) +
+  
+  # Layer 2: The Trend Line (using different data)
+  geom_line(data = monthly_avg_rates, aes(x = month, y = avg_rate * 15, group = 1), color = "#FF5733", size = 1.5) +
+  # Note: We multiply the avg_rate to scale it appropriately for visual overlay. This is for visual effect.
+  
+  scale_y_discrete(limits = rev(c("1", "2", "3", "4-6", "7+"))) +
+  labs(
+    title = "Subscription Rate by Month and Contact Frequency",
+    subtitle = "Heatmap shows specific rates; Orange line shows overall monthly trend",
+    x = "Month of Contact",
+    y = "Number of Contacts"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+###  In-Depth Findings from the Hybrid Plot
+
+This combined visualization tells a clear, multi-layered story:
+
+* **The Overall Trend (Line Chart):** The line chart immediately highlights a dramatic seasonal pattern. It shows major peaks in success during the spring (March), a sharp dip into a summer slump, followed by a very strong resurgence in autumn (Sept-Oct) and another peak in winter (Dec). This confirms that seasonality is a dominant force.
+* **The Detailed Interactions (Heatmap Tiles):** The heatmap provides the crucial context. The seasonal peaks are driven by incredible success rates, such as **56% in March** on the first contact. The autumn/winter strength is shown by high rates in **September (45%), October (46%), and December (47%)** for initial contacts.
+* **Campaign Fatigue Nuances:** While the first contact is often the best, the heatmap reveals exceptions. In **December**, the 2nd and 3rd contacts (61% and 56%) are even more successful than the first. The outliers in October and December for 7+ contacts (100% and 75%) are likely anomalies from small sample sizes but show that even late contacts can occasionally succeed in peak months.
+
+###  Conclusion for Question 6
+
+By combining a heatmap and a line chart, we can confidently conclude that both seasonality and campaign fatigue are major factors in campaign success, but their interaction is complex.
+
+**Actionable Insight:** The bank's marketing strategy should be guided by the overarching seasonal trend, but informed by the detailed interaction effects.
+
+1.  **Focus Efforts on Prime Seasons:** Concentrate marketing budgets and personnel in the high-performing months: **March, September, October, and December.**
+
+2.  **Adapt Contact Strategy by Month:** While the first contact is a safe bet, the data for **December** suggests that a second or third contact can be extremely valuable. The strategy should be flexible enough to allow for more persistence during these peak times.
+
+3.  **Avoid Wasted Effort:** During the summer slump (May-Aug) and the sharp dip in November, campaigns should be significantly scaled back to avoid inefficient spending.
+
+
+#  Summary and Conclusion
+
+Our journey through this dataset used visualization to uncover the intricate patterns driving the success of the bank's marketing campaigns. What we found was a clear and compelling story: a segmented, data-driven strategy is not just an improvement, but a fundamental shift from the old way of doing things.
+
+The analysis revealed that success is determined not just by who the bank calls, but by how and when. The first conversation with a client is golden, holding the most potential for success, a potential that diminishes with every subsequent call. This success is also deeply tied to the rhythm of the year. Campaigns thrive in the optimism of spring and autumn, while they struggle during the summer slump, a pulse that is amplified by a favorable economic climate.
+
+Of course, the "who" is still critically important. The ideal client is often single, has a higher education, and isn't burdened by a housing loan. Age also plays a crucial role, with key windows of opportunity among students, professionals nearing retirement, and retirees in their 60s. Yet, the most powerful predictor of all was past behavior—a client who has said "yes" before is incredibly likely to do so again.
+
+These insights form the foundation of a smarter marketing strategy. The clear message is to move from a brute-force approach to a model of "first contact excellence," timing these calls with the seasonal high tides of client interest. This leads to the cornerstone of our recommendation: tiered, precision-targeted campaigns. The highest priority should be re-engaging past subscribers and targeting the "golden profile" of single, educated clients during peak seasons. A second tier can focus on high-potential age groups and other niche opportunities.
+
+In the end, this analysis has shown that a generic, year-round marketing strategy is inefficient. A modern, data-informed approach based on strategic timing, precise segmentation, and a relentless focus on a quality initial contact will yield far superior results.
+
+
+#  References
+
+**Dataset:** *Moro, S., Cortez, P., & Rita, P. (2014). A data-driven approach to predict the success of bank telemarketing.* *Decision Support Systems, 62, 22–31.* *Retrieved from UCI Machine Learning Repository.*
+
+**R & Packages:** *This analysis was conducted using R (Version 4.3.1 or later) and the following key packages: **ggplot2** for all visualizations, **dplyr** for data manipulation, and **viridis** for color-blind friendly palettes.*
+
+**Visualization Methods:** *The visualization choices were informed by established data science practices, with inspiration and guidance from the following web resources.*
+
+**Faceted Plots:** *The concept of faceting is a core feature of **ggplot2**, allowing for the creation of subplot grids. Further information can be found at the ggplot2 documentation.*
+
+**Heatmaps & Line Charts:** *Examples and code for creating these chart types in R were referenced from the **R Graph Gallery**, a comprehensive online collection of chart examples.*
+
+**Violin Plots:** *The implementation of violin plots, which combine a box plot with a density plot, was guided by examples from resources like the **R Graph Gallery**.*
+
+**Generative AI Assistance:** *Generative AI was used as a productivity tool to brainstorm initial research questions, generate boilerplate R code, and help summarize findings. The final analysis and conclusions were directed by the authors.*
