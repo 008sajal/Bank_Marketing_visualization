@@ -44,4 +44,4 @@ This project analyzes the **Bank Marketing dataset** to understand the factors t
 ##  How to Run
 1. Clone this repository:
    ```bash
-   git clone 
+   git clone https://github.com/008sajal/Bank_Marketing_visualization.git
